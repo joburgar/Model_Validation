@@ -99,62 +99,97 @@ st_write(BC_grid_9km2, paste0(getwd(),"/BC_grid_9km2.shp"), delete_layer = TRUE)
 
 save(FID.dist, WID.dist, file = "FW_dist.RData")
 
-
-# ###--- older code
-# # assign GridId to fisher cells
-# 
-# grid_9km2 <- st_join(grid_36km2, grid_144km2 %>% select(GridId), largest=TRUE)
-# grid_36km2 <- grid_36km2 %>% arrange(GridId)
-# 
-# ggplot()+
-#   geom_sf(data = grid_36km2 %>% filter(GridId==14992), aes(fill=GridId))
-# 
-# tmp <- grid_36km2 %>% count(GridId) %>% st_drop_geometry()
-# tmp4cells <- tmp %>% filter(n==4)
-# 
-# grid_36km2$NumCells <- tmp$n[match(grid_36km2$GridId, tmp$GridId)]
-# 
-# grid_36km2_4cells <- grid_36km2 %>% filter(NumCells==4)
-# nrow(grid_36km2_4cells)/4
-# grid_36km2_4cells$FID <- rep(1:4, times=15104)
-# 
-# grid_36km2_4cells$WID <- grid_36km2_4cells$GridId
-# max(grid_36km2_4cells$WID)
-# grid_36km2_4cells$GridId <- paste("Id",str_pad(grid_36km2_4cells$WID, 5, pad = "0"),grid_36km2_4cells$FID, sep="_")
-# 
-# # assign GridId to marten cells
-# grid_9km2 <- st_join(grid_9km2, grid_36km2_4cells %>% select(GridId,FID,WID), largest=TRUE)
-# grid_9km2 <- grid_9km2 %>% arrange(WID, FID)
-# 
-# 
-# tmp <- grid_9km2 %>% count(GridId) %>% st_drop_geometry()
-# tmp %>% count(n)
-# tmp4cells <- tmp %>% filter(n==4)
-# 
-# grid_9km2$NumCells <- tmp$n[match(grid_9km2$GridId, tmp$GridId)]
-# 
-# grid_9km2_4cells <- grid_9km2 %>% filter(NumCells==4)
-# nrow(grid_9km2_4cells)/4
-# grid_9km2_4cells <- grid_9km2_4cells %>% arrange(WID, FID)
-# grid_9km2_4cells$MID <- rep(1:4, times=59987)
-# 
-# grid_9km2_4cells$GridId <- paste(grid_9km2_4cells$GridId,grid_9km2_4cells$MID, sep="_")
-# 
-# ggplot()+
-#   geom_sf(data = grid_9km2_4cells %>% filter(WID==1), aes(fill=MID))
-# 
-# 
-# BC_meso_grid <- st_intersection(grid_9km2_4cells %>% st_transform(3005),
-#                                 bc_sf %>% st_transform(3005))
-# 
-# st_write(BC_meso_grid, paste0(getwd(),"/BC_meso_grid.shp"), delete_layer = TRUE)
-# 
-# ###################################################################################
-
-BC_meso_grid <- st_read(dsn="./data", layer="BC_meso_grid")
+#################################################################################
+BC_grid_9km2 <- st_read(dsn="./data", layer="BC_grid_9km2")
+# BC_meso_grid <- st_read(dsn="./data", layer="BC_meso_grid")
 FHZ <- st_read(dsn="./data", layer="FHE_zones")
 
 ggplot()+
-  geom_sf(data=BC_meso_grid)+
+  geom_sf(data=BC_grid_9km2)+
   geom_sf(data=FHZ)
 
+ggplot()+
+  geom_sf(data=BC_grid_9km2 %>% filter(WID==8352), col="blue")+
+  geom_sf(data=BC_grid_9km2 %>% filter(FID==16742))
+
+BC_grid_9km2$MID <- BC_grid_9km2$Id
+BC_grid_9km2$Id <- NULL
+BC_grid_9km2$WID_dist <- NULL
+BC_grid_9km2$FID_dist <- NULL
+
+BC_grid_9km2$Areakm2 <- st_area(BC_grid_9km2)*1e-6
+BC_grid_9km2 <- drop_units(BC_grid_9km2)
+nrow(BC_grid_9km2 %>% filter(Areakm2!=9)) / 118005 # ~3% < 9km2
+
+BC_grid_9km2 <- BC_grid_9km2 %>% rename(FID_6km=FID, WID_12km=WID, MID_3km=MID)
+BC_grid_9km2 <- BC_grid_9km2 %>% arrange(WID_12km, FID_6km, MID_3km)
+
+# create naming convention so that it's WID_Fquadrant_Mquadrant
+# follow naming convention of quadrant where 1 is +x+y, 2 is -x+y, 3 is +x-y, and 4 is -x-y
+# first find centroids for each cell
+centre_points <- BC_grid_9km2 %>% st_transform(3005) %>% st_point_on_surface() %>% st_coordinates()
+centre_points <- as.data.frame(centre_points)
+BC_grid_9km2$centroidX <- centre_points$X
+BC_grid_9km2$centroidY <- centre_points$Y
+
+# work with dataframe for computation ease
+BC_grid_df <- BC_grid_9km2 %>% st_drop_geometry() %>% as_tibble()
+
+# create Fquad first (subset to WID and FID)
+BC_WF_grid_df <- BC_grid_df %>% group_by(WID_12km) %>% count(FID_6km)
+BC_WF_grid_df$centroidX <- BC_grid_df$centroidX[match(BC_WF_grid_df$FID_6km, BC_grid_df$FID_6km)]
+BC_WF_grid_df$centroidY <- BC_grid_df$centroidY[match(BC_WF_grid_df$FID_6km, BC_grid_df$FID_6km)]
+
+WID_min_centroid <- BC_WF_grid_df %>% group_by(WID_12km) %>% summarise(WIDminX = min(centroidX), WIDminY = min(centroidY))
+BC_WF_grid_df <- left_join(BC_WF_grid_df, WID_min_centroid)
+
+BC_WF_grid_df <- BC_WF_grid_df %>% mutate(Fquad = case_when(centroidX>WIDminX & centroidY>WIDminY ~ 1,
+                                                            centroidX==WIDminX & centroidY>WIDminY ~ 2,
+                                                            centroidX==WIDminX & centroidY==WIDminY ~ 3,
+                                                            centroidX>WIDminX & centroidY==WIDminY ~ 4))
+# add the Fquad back to the spatial file and plot to check
+BC_grid_9km2 <- left_join(BC_grid_9km2, BC_WF_grid_df %>% ungroup() %>% select(FID_6km, Fquad))
+
+ggplot()+
+  geom_sf(data=BC_grid_9km2 %>% filter(WID_12km==1), aes(fill=Fquad))
+
+
+# create Mquad next (subset to FID and MID)
+BC_FM_grid_df <- BC_grid_df %>% select(-Areakm2, -WID_12km)
+
+FID_min_centroid <- BC_FM_grid_df %>% group_by(FID_6km) %>% summarise(FIDminX = min(centroidX), FIDminY = min(centroidY))
+BC_FM_grid_df <- left_join(BC_FM_grid_df, FID_min_centroid)
+
+BC_FM_grid_df <- BC_FM_grid_df %>% mutate(Mquad = case_when(centroidX>FIDminX & centroidY>FIDminY ~ 1,
+                                                            centroidX==FIDminX & centroidY>FIDminY ~ 2,
+                                                            centroidX==FIDminX & centroidY==FIDminY ~ 3,
+                                                            centroidX>FIDminX & centroidY==FIDminY ~ 4))
+
+
+# add the Mquad back to the spatial file and plot to check
+BC_grid_9km2 <- left_join(BC_grid_9km2, BC_FM_grid_df %>% ungroup() %>% select(MID_3km, Mquad))
+
+ggplot()+
+  geom_sf(data=BC_grid_9km2 %>% filter(WID_12km==7), aes(fill=as.factor(Mquad)))
+
+
+BC_grid_9km2 <- BC_grid_9km2 %>% arrange(WID_12km, Fquad, Mquad)
+
+# create new WID in same order as original WID but no missing values 
+uniqueWID <- as.data.frame(unique(BC_grid_9km2$WID_12km))
+colnames(uniqueWID)[1] <- "origWID"
+uniqueWID$newWID <- rownames(uniqueWID)
+tail(uniqueWID)
+
+
+# create labels and re-order sf object
+BC_grid_9km2$Wgrid <- uniqueWID$newWID[match(BC_grid_9km2$WID_12km, uniqueWID$origWID)]
+BC_grid_9km2$MesoCell <- paste0("W", str_pad(BC_grid_9km2$WID_12km, 4, pad = "0"),
+                                "_F", BC_grid_9km2$Fquad,
+                                "_M", BC_grid_9km2$Mquad)
+
+BC_meso_grid <- BC_grid_9km2 %>% select(-Areakm2, -centroidX, -centroidY)
+BC_meso_grid <- BC_meso_grid[c("MesoCell","Wgrid","Fquad","Mquad","WID_12km","FID_6km","MID_3km")]
+
+# write shapefile
+st_write(BC_meso_grid, paste0(getwd(),"/data/BC_meso_grid.shp"), delete_layer = TRUE)
