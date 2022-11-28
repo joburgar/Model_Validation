@@ -183,7 +183,7 @@ tail(uniqueWID)
 
 
 # create labels and re-order sf object
-BC_grid_9km2$Wgrid <- uniqueWID$newWID[match(BC_grid_9km2$WID_12km, uniqueWID$origWID)]
+BC_grid_9km2$Wgrid <- as.numeric(uniqueWID$newWID[match(BC_grid_9km2$WID_12km, uniqueWID$origWID)])
 BC_grid_9km2$MesoCell <- paste0("W", str_pad(BC_grid_9km2$WID_12km, 4, pad = "0"),
                                 "_F", BC_grid_9km2$Fquad,
                                 "_M", BC_grid_9km2$Mquad)
@@ -193,3 +193,11 @@ BC_meso_grid <- BC_meso_grid[c("MesoCell","Wgrid","Fquad","Mquad","WID_12km","FI
 
 # write shapefile
 st_write(BC_meso_grid, paste0(getwd(),"/data/BC_meso_grid.shp"), delete_layer = TRUE)
+# MescoCell = character = Wgrid_Fquad_Mquad
+# Wgrid = numeric = 1:7601 where lower number = higher priority for random provincial sampling
+# Fquad = numeric = 1:4 where number refers to quadrant location
+# Mquad = numeric = 1:4 where number refers to quadrant location
+# WID_12km = original random ordering for wolverine sized cells (same order but without missing values as Wgrid)
+# FID_6km = random ordering for fisher sized cells (if fisher focused study)
+# MID_3km = random ordering for marten sized cells (if marten focused study)
+
