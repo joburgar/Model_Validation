@@ -101,7 +101,6 @@ save(FID.dist, WID.dist, file = "FW_dist.RData")
 
 #################################################################################
 BC_grid_9km2 <- st_read(dsn="./data", layer="BC_grid_9km2")
-# BC_meso_grid <- st_read(dsn="./data", layer="BC_meso_grid")
 FHZ <- st_read(dsn="./data", layer="FHE_zones")
 
 ggplot()+
@@ -170,29 +169,38 @@ BC_FM_grid_df <- BC_FM_grid_df %>% mutate(Mquad = case_when(centroidX>FIDminX & 
 BC_grid_9km2 <- left_join(BC_grid_9km2, BC_FM_grid_df %>% ungroup() %>% select(MID_3km, Mquad))
 
 ggplot()+
-  geom_sf(data=BC_grid_9km2 %>% filter(WID_12km==7), aes(fill=as.factor(Mquad)))
+  geom_sf(data=BC_grid_9km2 %>% filter(WID_12km==7), aes(fill=Mquad))
 
 
+### subset to just BC
 BC_grid_9km2 <- BC_grid_9km2 %>% arrange(WID_12km, Fquad, Mquad)
+BC_meso_grid <- BC_grid_9km2 %>% select(-Areakm2, -centroidX, -centroidY)
+
+BC_meso_grid <- st_intersection(BC_meso_grid, bc_sf)
+
+BC_meso_grid <- BC_meso_grid[c("MesoCell","Wgrid","Fquad","Mquad","WID_12km","FID_6km","MID_3km")]
+
 
 # create new WID in same order as original WID but no missing values 
-uniqueWID <- as.data.frame(unique(BC_grid_9km2$WID_12km))
+uniqueWID <- as.data.frame(unique(BC_meso_grid$WID_12km))
 colnames(uniqueWID)[1] <- "origWID"
 uniqueWID$newWID <- rownames(uniqueWID)
 tail(uniqueWID)
 
 
 # create labels and re-order sf object
-BC_grid_9km2$Wgrid <- as.numeric(uniqueWID$newWID[match(BC_grid_9km2$WID_12km, uniqueWID$origWID)])
-BC_grid_9km2$MesoCell <- paste0("W", str_pad(BC_grid_9km2$WID_12km, 4, pad = "0"),
-                                "_F", BC_grid_9km2$Fquad,
-                                "_M", BC_grid_9km2$Mquad)
+BC_meso_grid$Wgrid <- as.numeric(uniqueWID$newWID[match(BC_meso_grid$WID_12km, uniqueWID$origWID)])
+BC_meso_grid$MesoCell <- paste0("W", str_pad(BC_meso_grid$Wgrid, 4, pad = "0"),
+                                "_F", BC_meso_grid$Fquad,
+                                "_M", BC_meso_grid$Mquad)
 
-BC_meso_grid <- BC_grid_9km2 %>% select(-Areakm2, -centroidX, -centroidY)
-BC_meso_grid <- BC_meso_grid[c("MesoCell","Wgrid","Fquad","Mquad","WID_12km","FID_6km","MID_3km")]
-
+tail(BC_meso_grid)
 # write shapefile
 st_write(BC_meso_grid, paste0(getwd(),"/data/BC_meso_grid.shp"), delete_layer = TRUE)
+
+st_bbox(BC_meso_grid)
+# xmin      ymin      xmax      ymax 
+# 275942.4  367537.4 1867409.8 1735251.6 
 # MescoCell = character = Wgrid_Fquad_Mquad
 # Wgrid = numeric = 1:7601 where lower number = higher priority for random provincial sampling
 # Fquad = numeric = 1:4 where number refers to quadrant location
@@ -201,3 +209,40 @@ st_write(BC_meso_grid, paste0(getwd(),"/data/BC_meso_grid.shp"), delete_layer = 
 # FID_6km = random ordering for fisher sized cells (if fisher focused study)
 # MID_3km = random ordering for marten sized cells (if marten focused study)
 
+
+#################################################################################
+# View shapefile
+BC_meso_grid <- st_read(dsn=paste0(getwd(),"/data"), layer="BC_meso_grid")
+
+glimpse(BC_meso_grid)
+
+ggplot()+
+    geom_sf(data=BC_meso_grid %>% filter(Wgrid==2), aes(fill=Mquad))
+ggplot()+
+  geom_sf(data=BC_meso_grid %>% filter(Wgrid==2), aes(fill=Fquad))+
+  geom_sf(data=BC_meso_grid %>% filter(FID_6km==29599), aes(fill=Mquad))
+
+
+
+#################################################################################
+# Bring in study area - clip grid to buffered area and export
+input_sf <- st_read(dsn=paste0(getwd(),"/data/Decar_Wildlife_LSA"), layer="Decar_Wildlife_LSA") %>% st_transform(crs=3005)
+
+SA_meso <- function(input_sf = input_sf, buff_dist = 12000){
+  sa_input_buff <- st_buffer(input_sf, dist = buff_dist)
+  find_grid_cells <- sf::st_within(BC_meso_grid, st_bbox(sa_input_buff) %>% st_as_sfc(.))
+  filt_grid_cells <- BC_meso_grid[which(lengths(find_grid_cells) != 0), ]
+  SA_meso <- BC_meso_grid %>% filter(Wgrid %in% filt_grid_cells$Wgrid)
+  return(SA_meso)
+}
+
+DECAR_Wildlife_LSA <- SA_meso(input_sf = input_sf)
+
+ggplot()+
+  geom_sf(data=DECAR_Wildlife_LSA, aes(fill=Mquad))+
+  geom_sf(data=input_sf, fill=NA)
+
+st_write(DECAR_Wildlife_LSA, paste0(getwd(),"./data/Decar_Wildlife_LSA/meso_grid_DECAR_Wildlife_LSA.shp"), delete_layer = TRUE)
+
+
+DECAR_Wildlife_LSA %>% count(Wgrid)
