@@ -225,9 +225,9 @@ ggplot()+
 
 
 #################################################################################
-# Bring in study area - clip grid to buffered area and export
-input_sf <- st_read(dsn=paste0(getwd(),"/data/Decar_Wildlife_LSA"), layer="Decar_Wildlife_LSA") %>% st_transform(crs=3005)
+###--- FUNCTIONS ---###
 
+###--- Bring in study area - clip grid to buffered area and export
 SA_meso <- function(input_sf = input_sf, buff_dist = 12000){
   sa_input_buff <- st_buffer(input_sf, dist = buff_dist)
   find_grid_cells <- sf::st_within(BC_meso_grid, st_bbox(sa_input_buff) %>% st_as_sfc(.))
@@ -236,13 +236,60 @@ SA_meso <- function(input_sf = input_sf, buff_dist = 12000){
   return(SA_meso)
 }
 
-DECAR_Wildlife_LSA <- SA_meso(input_sf = input_sf)
+###--- Retrieve data from the BC data catalogue
+retrieve_geodata_aoi <- function (ID=ID){
+  aoi.geodata <- bcdc_query_geodata(ID) %>%
+    filter(BBOX(st_bbox(aoi))) %>%
+    collect()
+  aoi.geodata <- aoi.geodata %>% st_intersection(aoi)
+  aoi.geodata$Area_km2 <- st_area(aoi.geodata)*1e-6
+  aoi.geodata <- drop_units(aoi.geodata)
+  return(aoi.geodata)
+}
+
+#################################################################################
+# # for Leah Anderson (DECAR_Wildlife_LSA)
+# input_sf <- st_read(dsn=paste0(getwd(),"/data/Decar_Wildlife_LSA"), layer="Decar_Wildlife_LSA") %>% st_transform(crs=3005)
+# 
+# DECAR_Wildlife_LSA <- SA_meso(input_sf = input_sf)
+# 
+# ggplot()+
+#   geom_sf(data=DECAR_Wildlife_LSA, aes(fill=Mquad))+
+#   geom_sf(data=input_sf, fill=NA)
+# 
+# st_write(DECAR_Wildlife_LSA, paste0(getwd(),"./data/Decar_Wildlife_LSA/meso_grid_DECAR_Wildlife_LSA.shp"), delete_layer = TRUE)
+
+
+# for Enterprise Telemetry (DRAFT_Enterprise_telemetry)
+GIS_Dir <- "//Sfp.idir.bcgov/s140/S40203/Ecosystems/Conservation Science/Species Conservation Science/Mesocarnivores/Projects/Enterprise fisher telemetry/GIS_data"
+input_sf <- st_read(dsn=GIS_Dir, layer="DRAFT_Enterprise_telemetry") %>% st_transform(crs=3005)
+
+Enterprise_SA <- SA_meso(input_sf = input_sf, buff_dist = 48000)
 
 ggplot()+
-  geom_sf(data=DECAR_Wildlife_LSA, aes(fill=Mquad))+
-  geom_sf(data=input_sf, fill=NA)
+  geom_sf(data=Enterprise_SA, aes(fill=Wgrid))+
+  geom_sf(data=input_sf, fill=NA, lwd = 2)
 
-st_write(DECAR_Wildlife_LSA, paste0(getwd(),"./data/Decar_Wildlife_LSA/meso_grid_DECAR_Wildlife_LSA.shp"), delete_layer = TRUE)
+st_write(Enterprise_SA, paste0(getwd(),"./data/meso_grid_Enterprise_SA.shp"), delete_layer = TRUE)
 
+Enterprise_SA %>% count(Wgrid) %>% st_drop_geometry()
 
-DECAR_Wildlife_LSA %>% count(Wgrid)
+aoi <- Enterprise_SA %>% 
+  summarise(across(geometry, ~ st_union(.))) %>%
+  summarise(across(geometry, ~ st_combine(.)))
+
+bcdc_search("BEC", res_format = "wms")
+aoi.BEC <- retrieve_geodata_aoi(ID = "f358a53b-ffde-4830-a325-a5a03ff672c3")
+
+# bcdc_search("indigenous", res_format = "wms")
+bcdc_search("city", res_format = "wms")
+# 2: BC Major Cities Points 1:2,000,000 (Digital Baseline Mapping) (multiple, wms, kml)
+# ID: b678c432-c5c1-4341-88db-0d6befa0c7f8
+aoi.city <- retrieve_geodata_aoi(ID = "b678c432-c5c1-4341-88db-0d6befa0c7f8")
+
+ggplot()+
+  geom_sf(data=aoi)+
+  geom_sf(data=aoi.BEC, aes(fill=ZONE))+
+  geom_sf(data=Enterprise_SA, fill=NA, lwd=0.3, col="lightgrey")+
+  geom_sf(data=input_sf, fill=NA, lwd=1.5)+
+  geom_sf(data=aoi.city, aes(col=NAME), cex=5)
