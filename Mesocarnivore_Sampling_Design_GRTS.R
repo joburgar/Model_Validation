@@ -218,11 +218,31 @@ glimpse(BC_meso_grid)
 
 ggplot()+
     geom_sf(data=BC_meso_grid %>% filter(Wgrid==2), aes(fill=Mquad))
+
 ggplot()+
   geom_sf(data=BC_meso_grid %>% filter(Wgrid==2), aes(fill=Fquad))+
   geom_sf(data=BC_meso_grid %>% filter(FID_6km==29599), aes(fill=Mquad))
 
 
+# BC_meso_Wgrid <- BC_meso_grid %>% group_by(Wgrid) %>%
+#   summarise(across(geometry, ~ st_union(.)), .groups = "keep") %>%
+#   summarise(across(geometry, ~ st_combine(.)))
+# 
+# st_write(BC_meso_Wgrid, paste0(getwd(),"/data/BC_meso_Wgrid.shp"), delete_layer = TRUE)
+
+BC_meso_Wgrid <- st_read(dsn=paste0(getwd(),"/data"), layer="BC_meso_Wgrid")
+
+# BC_meso_Fquad <- BC_meso_grid %>% group_by(FID_6km) %>%
+#   summarise(across(geometry, ~ st_union(.)), .groups = "keep") %>%
+#   summarise(across(geometry, ~ st_combine(.)))
+# 
+# st_write(BC_meso_Fquad, paste0(getwd(),"/data/BC_meso_Fquad.shp"), delete_layer = TRUE)
+
+BC_meso_Fquad <- st_read(dsn=paste0(getwd(),"/data"), layer="BC_meso_Fquad")
+
+ggplot()+
+  geom_sf(data=bc_sf) +
+  geom_sf(data=BC_meso_Wgrid)
 
 #################################################################################
 ###--- FUNCTIONS ---###
@@ -259,8 +279,8 @@ retrieve_geodata_aoi <- function (ID=ID){
 # 
 # st_write(DECAR_Wildlife_LSA, paste0(getwd(),"./data/Decar_Wildlife_LSA/meso_grid_DECAR_Wildlife_LSA.shp"), delete_layer = TRUE)
 
-
-# for Enterprise Telemetry (DRAFT_Enterprise_telemetry)
+#################################################################################
+# # for Enterprise Telemetry (DRAFT_Enterprise_telemetry)
 GIS_Dir <- "//Sfp.idir.bcgov/s140/S40203/Ecosystems/Conservation Science/Species Conservation Science/Mesocarnivores/Projects/Enterprise fisher telemetry/GIS_data"
 input_sf <- st_read(dsn=GIS_Dir, layer="DRAFT_Enterprise_telemetry") %>% st_transform(crs=3005)
 
@@ -272,24 +292,212 @@ ggplot()+
 
 st_write(Enterprise_SA, paste0(getwd(),"./data/meso_grid_Enterprise_SA.shp"), delete_layer = TRUE)
 
-Enterprise_SA %>% count(Wgrid) %>% st_drop_geometry()
+# Enterprise_SA %>% count(Wgrid) %>% st_drop_geometry()
+# 
+# Enterprise_Fquad <- Enterprise_SA %>% group_by(FID_6km) %>%
+#   summarise(across(geometry, ~ st_union(.)), .groups = "keep") %>%
+#   summarise(across(geometry, ~ st_combine(.)))
+# 
+# aoi <- Enterprise_SA %>%
+#   summarise(across(geometry, ~ st_union(.))) %>%
+#   summarise(across(geometry, ~ st_combine(.)))
+# 
+# bcdc_search("BEC", res_format = "wms")
+# aoi.BEC <- retrieve_geodata_aoi(ID = "f358a53b-ffde-4830-a325-a5a03ff672c3")
+# 
+# # bcdc_search("indian", res_format = "wms")
+# # 1: Indian Reserves - Administrative Boundaries (multiple, wms, kml)
+# # ID: 8efe9193-80d2-4fdf-a18c-d531a94196ad
+# # Name: indian-reserves-administrative-boundaries
+# aoi.IR <- retrieve_geodata_aoi((ID = "8efe9193-80d2-4fdf-a18c-d531a94196ad"))
+# 
+# # bcdc_search("city", res_format = "wms")
+# # 2: BC Major Cities Points 1:2,000,000 (Digital Baseline Mapping) (multiple, wms, kml)
+# # ID: b678c432-c5c1-4341-88db-0d6befa0c7f8
+# aoi.city <- retrieve_geodata_aoi(ID = "b678c432-c5c1-4341-88db-0d6befa0c7f8")
+# 
+# bcdc_search("road", res_format = "wms")
+# # 1: Digital Road Atlas (DRA) - Master Partially-Attributed Roads (multiple, zip, wms, pdf, kml)
+# # ID: bb060417-b6e6-4548-b837-f9060d94743e
+# # Name: digital-road-atlas-dra-master-partially-attributed-roads
+# aoi.road <- retrieve_geodata_aoi(ID = "bb060417-b6e6-4548-b837-f9060d94743e")
+# 
+# 
+# ggplot()+
+#   geom_sf(data=aoi)+
+#   geom_sf(data=aoi.BEC, aes(fill=ZONE))+
+#   geom_sf(data=Enterprise_Fquad, fill=NA, lwd=0.3, col="lightgrey")+
+#   geom_sf(data=input_sf, fill=NA, lwd=1.5)+
+#   geom_sf(data=aoi.city, aes(col=NAME), cex=5)+
+#   geom_sf(data=aoi.IR %>% filter(grepl("CANOE|ALKALI", ENGLISH_NAME)), aes(fill=NA))
+# 
+# 
+# as.data.frame(aoi.IR %>% count(ENGLISH_NAME))
+#################################################################################
+# for Gitanyow Study Area (DRAFT_Enterprise_telemetry)
+# input_sf <- st_read("./data/Gitanyow/Gitanyow_draft_study_area.kml") %>% st_transform(crs=3005)
+# 
+# Gitanyow_Boundary <- st_read(dsn="./data/Gitanyow", layer="Gitanyow_House_Territory_Outside_Boundary") %>% st_transform(crs=3005)
+# 
+# ggplot()+
+#   geom_sf(data=Gitanyow_Boundary)+
+#   geom_sf(data=input_sf)
+#   
+# Gitanyow_SA <- SA_meso(input_sf = input_sf, buff_dist = 10000)
+# 
+# ggplot()+
+#   geom_sf(data=Gitanyow_SA, aes(fill=Wgrid))+
+#   geom_sf(data=input_sf, fill=NA, lwd = 2)
+# 
+# st_write(Gitanyow_SA, paste0(getwd(),"./data/meso_grid_Gitanyow_SA.shp"), delete_layer = TRUE)
+# 
+# Gitanyow_SA %>% count(Wgrid) %>% st_drop_geometry()
+# 
+# aoi <- Gitanyow_SA %>%
+#   summarise(across(geometry, ~ st_union(.))) %>%
+#   summarise(across(geometry, ~ st_combine(.)))
+# 
+# # bcdc_search("BEC", res_format = "wms")
+# aoi.BEC <- retrieve_geodata_aoi(ID = "f358a53b-ffde-4830-a325-a5a03ff672c3")
+# 
+# # bcdc_search("city", res_format = "wms")
+# # # 2: BC Major Cities Points 1:2,000,000 (Digital Baseline Mapping) (multiple, wms, kml)
+# # # ID: b678c432-c5c1-4341-88db-0d6befa0c7f8
+# # aoi.city <- retrieve_geodata_aoi(ID = "b678c432-c5c1-4341-88db-0d6befa0c7f8")
+# 
+# ggplot()+
+#   geom_sf(data=aoi)+
+#   geom_sf(data=aoi.BEC, aes(fill=MAP_LABEL))+
+#   geom_sf(data=Gitanyow_Fquad, fill=NA, lwd=0.3, col="lightgrey")+
+#   geom_sf(data=input_sf, fill=NA, lwd=1.5)
+#   # geom_sf(data=Gitanyow_Boundary, fill=NA, lwd=0.3, col="black")
+#   
+# ggplot()+
+#   geom_sf(data=Gitanyow_Fquad, aes(fill=FID_6km))+
+#   # geom_sf(data=Gitanyow_SA, aes(fill=FID_6km))+
+#   geom_sf(data=input_sf, fill=NA, lwd=1.5)
+# # geom_sf(data=Gitanyow_Boundary, fill=NA, lwd=0.3, col="black")
+# 
+# 
+# Gitanyow_Fquad <- Gitanyow_SA %>% group_by(FID_6km) %>%
+#   summarise(across(geometry, ~ st_union(.)), .groups = "keep") %>%
+#   summarise(across(geometry, ~ st_combine(.)))
 
-aoi <- Enterprise_SA %>% 
+
+#################################################################################
+# for Esk'etemc Study Area ()
+input_sf <- st_read(dsn = "./data/Esketemc", layer="SOI_Esket2020")
+
+ggplot()+
+  geom_sf(data=bc_sf)+
+  geom_sf(data=BC_meso_Wgrid)+
+  geom_sf(data=input_sf, col="blue", fill="blue")
+
+Esketemc_SA <- SA_meso(input_sf = input_sf, buff_dist = 3000)
+
+ggplot()+
+  geom_sf(data=Esketemc_SA)+
+  geom_sf(data=input_sf, col="blue", fill="blue")
+
+Esketemc_Fquad <- Esketemc_SA %>% group_by(FID_6km) %>%
+  summarise(across(geometry, ~ st_union(.)), .groups = "keep") %>%
+  summarise(across(geometry, ~ st_combine(.)))
+
+Esketemc_Fquad$Wgrid <- Esketemc_SA$Wgrid[match(Esketemc_Fquad$FID_6km, Esketemc_SA$FID_6km)]
+Esketemc_Fquad$Fquad <- Esketemc_SA$Fquad[match(Esketemc_Fquad$FID_6km, Esketemc_SA$FID_6km)]
+
+st_write(Esketemc_Fquad,paste0(getwd(),"/data/Esketemc/Esketemc_Fquad.shp"), delete_layer = TRUE)
+
+
+Esketemc_Wgrid <- Esketemc_SA %>% group_by(Wgrid) %>%
+  summarise(across(geometry, ~ st_union(.)), .groups = "keep") %>%
+  summarise(across(geometry, ~ st_combine(.)))
+
+aoi <- Esketemc_SA %>%
   summarise(across(geometry, ~ st_union(.))) %>%
   summarise(across(geometry, ~ st_combine(.)))
 
-bcdc_search("BEC", res_format = "wms")
+# bcdc_search("BEC", res_format = "wms")
 aoi.BEC <- retrieve_geodata_aoi(ID = "f358a53b-ffde-4830-a325-a5a03ff672c3")
 
-# bcdc_search("indigenous", res_format = "wms")
-bcdc_search("city", res_format = "wms")
+# bcdc_search("indian", res_format = "wms")
+# 1: Indian Reserves - Administrative Boundaries (multiple, wms, kml)
+# ID: 8efe9193-80d2-4fdf-a18c-d531a94196ad
+# Name: indian-reserves-administrative-boundaries
+aoi.IR <- retrieve_geodata_aoi((ID = "8efe9193-80d2-4fdf-a18c-d531a94196ad"))
+aoi.IR$FN <- word(aoi.IR$ENGLISH_NAME)
+aoi.EsCC <- aoi.IR %>% filter(grepl("DOG|ALKALI", FN))
+
+# bcdc_search("city", res_format = "wms")
 # 2: BC Major Cities Points 1:2,000,000 (Digital Baseline Mapping) (multiple, wms, kml)
 # ID: b678c432-c5c1-4341-88db-0d6befa0c7f8
 aoi.city <- retrieve_geodata_aoi(ID = "b678c432-c5c1-4341-88db-0d6befa0c7f8")
 
+# bcdc_search("road", res_format = "wms")
+# 1: Digital Road Atlas (DRA) - Master Partially-Attributed Roads (multiple, zip, wms, pdf, kml)
+# ID: bb060417-b6e6-4548-b837-f9060d94743e
+# Name: digital-road-atlas-dra-master-partially-attributed-roads
+aoi.road <- retrieve_geodata_aoi(ID = "bb060417-b6e6-4548-b837-f9060d94743e")
+aoi.road %>% count(ROAD_SURFACE) %>% st_drop_geometry()
+as.data.frame(aoi.road %>% count(ROAD_CLASS) %>% st_drop_geometry())
+
 ggplot()+
+  theme_minimal()+
   geom_sf(data=aoi)+
-  geom_sf(data=aoi.BEC, aes(fill=ZONE))+
-  geom_sf(data=Enterprise_SA, fill=NA, lwd=0.3, col="lightgrey")+
-  geom_sf(data=input_sf, fill=NA, lwd=1.5)+
-  geom_sf(data=aoi.city, aes(col=NAME), cex=5)
+  geom_sf(data=aoi.BEC %>% filter(grepl("SBS|IDF|SBPS", ZONE)), aes(fill=ZONE))+
+  geom_sf(data=Esketemc_Wgrid, fill=NA)+
+  # geom_sf(data=Esketemc_Fquad, fill=NA, lwd=0.3, col="lightgrey")+
+  geom_sf(data=input_sf, fill=NA, col="black",lwd=1.2)+
+  # geom_sf(data=aoi.road %>% filter(FEATURE_TYPE=="Road"))+
+  # geom_sf(data=aoi.road %>% filter(ROAD_SURFACE==c("paved","loose")))+
+  # geom_sf(data=aoi.road %>% filter(ROAD_CLASS==c("highway","local","service")))+
+  geom_sf(data=aoi.EsCC, fill="black", col="black",lwd=1.5)
+
+
+temp.grid <- st_join(aoi.EsCC, Esketemc_Wgrid)
+Esketemc_Fquad$Fquad <- as.factor(Esketemc_Fquad$Fquad)
+
+tmp.Wgrid <- Esketemc_Fquad %>% filter(Wgrid %in% temp.grid$Wgrid) %>% st_drop_geometry()
+tmp.Wgrid %>% arrange(Wgrid) %>% count(Wgrid) #1599, 1673
+rdm.points <- st_centroid(Esketemc_Fquad %>% filter(Wgrid %in% c("1599","1673")))
+
+st_write(rdm.points,paste0(getwd(),"/data/Esketemc/RndmCamPnts.shp"), delete_layer = TRUE)
+
+rdm.points %>% st_transform(crs=4326)
+
+ggplot()+
+  theme_minimal()+
+  # geom_sf(data=aoi.BEC %>% filter(grepl("SBS|IDF|SBPS", ZONE)), aes(fill=ZONE))+
+  geom_sf(data=input_sf, fill=NA, col="black",lwd=1.2)+
+  geom_sf(data=Esketemc_Fquad %>% filter(Wgrid %in% c("1599","1673")), fill=NA)+
+  geom_sf(data=rdm.points, col="blue")+
+  # geom_sf(data=Esketemc_Fquad %>% filter(Wgrid %in% c("1599","1673")), aes(fill=Fquad))+
+  # geom_sf(data=Esketemc_Wgrid %>% filter(Wgrid %in% temp.grid$Wgrid), col="black", fill=NA, lwd=1.2)+
+  # geom_sf(data=aoi.road %>% filter(FEATURE_TYPE=="Road"))+
+  # geom_sf(data=aoi.road %>% filter(ROAD_SURFACE==c("paved","loose")))+
+  # geom_sf(data=aoi.road %>% filter(ROAD_CLASS==c("highway","local","service")))+
+  geom_sf(data=aoi.EsCC, fill="black", col="black",lwd=1.5)
+
+
+
+
+pal <- pnw_palette(name="Shuksan2",n=4, type="discrete")
+
+
+ggplot()+
+  geom_sf(data=Esketemc_Fquad, aes(fill=Fquad))+
+  scale_color_manual(values = pnw_palette("Shuksan2",4))+
+  # geom_sf(data=Esketemc_Wgrid, col="darkblue", lwd=1, fill=NA)+
+  # geom_sf(data=input_sf, col="black", lwd=2, fill=NA)+
+  geom_sf(data=aoi.EsCC, lwd=0)
+
+
+  
+#################################################################################
+  
+# fgdb = "/TTML_PlantInventory/p12/bcsarga.gdb"
+fgdb = "/TTML_PlantInventory/p20/bcsarga.gdb"
+
+# List  feature classes in a file geodatabase
+st_layers(paste(GISDir,fgdb,sep=""))
+
