@@ -390,7 +390,6 @@ input_sf <- st_read(dsn = "./data/Esketemc", layer="SOI_Esket2020")
 
 ggplot()+
   geom_sf(data=bc_sf)+
-  geom_sf(data=BC_meso_Wgrid)+
   geom_sf(data=input_sf, col="blue", fill="blue")
 
 Esketemc_SA <- SA_meso(input_sf = input_sf, buff_dist = 3000)
@@ -454,12 +453,12 @@ ggplot()+
   geom_sf(data=aoi.EsCC, fill="black", col="black",lwd=1.5)
 
 
-temp.grid <- st_join(aoi.EsCC, Esketemc_Wgrid)
+temp.grid <- st_join(aoi.BEC %>% filter(grepl("SBS|IDF|SBPS", ZONE)), Esketemc_Wgrid)
 Esketemc_Fquad$Fquad <- as.factor(Esketemc_Fquad$Fquad)
 
 tmp.Wgrid <- Esketemc_Fquad %>% filter(Wgrid %in% temp.grid$Wgrid) %>% st_drop_geometry()
 tmp.Wgrid %>% arrange(Wgrid) %>% count(Wgrid) #1599, 1673
-rdm.points <- st_centroid(Esketemc_Fquad %>% filter(Wgrid %in% c("1599","1673")))
+rdm.points <- st_centroid(Esketemc_Fquad %>% filter(Wgrid %in% unique(tmp.Wgrid$Wgrid)))
 
 st_write(rdm.points,paste0(getwd(),"/data/Esketemc/RndmCamPnts.shp"), delete_layer = TRUE)
 
@@ -467,7 +466,7 @@ rdm.points %>% st_transform(crs=4326)
 
 ggplot()+
   theme_minimal()+
-  # geom_sf(data=aoi.BEC %>% filter(grepl("SBS|IDF|SBPS", ZONE)), aes(fill=ZONE))+
+  geom_sf(data=aoi.BEC %>% filter(grepl("SBS|IDF|SBPS", ZONE)), aes(fill=ZONE))+
   geom_sf(data=input_sf, fill=NA, col="black",lwd=1.2)+
   geom_sf(data=Esketemc_Fquad %>% filter(Wgrid %in% c("1599","1673")), fill=NA)+
   geom_sf(data=rdm.points, col="blue")+
@@ -477,9 +476,6 @@ ggplot()+
   # geom_sf(data=aoi.road %>% filter(ROAD_SURFACE==c("paved","loose")))+
   # geom_sf(data=aoi.road %>% filter(ROAD_CLASS==c("highway","local","service")))+
   geom_sf(data=aoi.EsCC, fill="black", col="black",lwd=1.5)
-
-
-
 
 pal <- pnw_palette(name="Shuksan2",n=4, type="discrete")
 
@@ -492,12 +488,62 @@ ggplot()+
   geom_sf(data=aoi.EsCC, lwd=0)
 
 
+Esketemc_Fquad_inner <- Esketemc_Fquad %>% st_intersection(input_sf)
+Esketemc_Fquad_inner <- st_join(Esketemc_Fquad_inner, aoi.BEC, largest=TRUE)
+Esketemc_Fquad_inner$use <- ifelse(grepl("SBS|IDF|SBPS", Esketemc_Fquad_inner$ZONE),1,0)
+Esketemc_Fquad_inner %>% group_by(use) %>% count(ZONE)
+Esketemc_Fquad_inner <- Esketemc_Fquad_inner %>% arrange(!use, FID_6km)
+Esketemc_Fquad_inner$priority <- seq(1:nrow(Esketemc_Fquad_inner))
+
+st_write(Esketemc_Fquad_inner %>% select(Wgrid, Fquad, FID_6km, ZONE, priority),paste0(getwd(),"/data/Esketemc/Priority_Grid_Cells.shp"), delete_layer = TRUE)
+
+
+
+ggplot()+
+  geom_sf(data=Esketemc_Fquad_inner)
+rlang::last_error()
   
 #################################################################################
-  
+FHZ <- st_read(dsn="./data", layer="FHE_zones")
+st_simplify(FHZ)
+
+getwd()
 # fgdb = "/TTML_PlantInventory/p12/bcsarga.gdb"
-fgdb = "/TTML_PlantInventory/p20/bcsarga.gdb"
+fgdb = "/M-PEPE-SPI/M-PEPE_SpatialObservations_Aug2022.gdb"
 
 # List  feature classes in a file geodatabase
-st_layers(paste(GISDir,fgdb,sep=""))
+st_layers(paste0(getwd(),fgdb))
+
+# for the 06-Aug-2021 output, the p20 gdb was imported
+# Available layers:
+#                          layer_name geometry_type features fields          crs_name
+# 1     SPI_SURVEY_OBS_M_PEPE_AUG2022         Point      153    133 NAD83 / BC Albers
+# 2 SPI_INCIDENTAL_OBS_M_PEPE_AUG2022         Point       51     65 NAD83 / BC Albers
+# 3  SPI_TELEMETRY_OBS_M_PEPE_AUG2022         Point     3169     39 NAD83 / BC Albers
+
+# just importing one layer
+SPI_SURVEY <- st_read(dsn=paste0(getwd(),fgdb),layer="SPI_SURVEY_OBS_M_PEPE_AUG2022") %>%
+    st_transform(crs=3005)%>% select("SURVEY_OBS","SPECIES_EN","OBSERVED_N","OBSERVATIO","OBSERVAT_1","LATITUDE","LONGITUDE")
+as.data.frame(SPI_SURVEY %>% count(OBSERVAT_1) %>% st_drop_geometry())
+
+SPI_INC <- st_read(dsn=paste0(getwd(),fgdb),layer="SPI_INCIDENTAL_OBS_M_PEPE_AUG2022") %>%
+  st_transform(crs=3005)
+as.data.frame(SPI_INC %>% count(OBSERVAT_1) %>% st_drop_geometry())
+
+SPI_TELEM <- st_read(dsn=paste0(getwd(),fgdb),layer="SPI_TELEMETRY_OBS_M_PEPE_AUG2022") %>%
+  st_transform(crs=3005)
+as.data.frame(SPI_TELEM %>% count(OBSERVAT_1) %>% st_drop_geometry())
+
+ggplot()+
+  geom_sf(data=bc_sf)+
+  # geom_sf(data=FHZ)+
+  geom_sf(data=SPI_SURVEY) +
+  geom_sf(data=SPI_INC, col="red") +
+  geom_sf(data=SPI_TELEM, col="blue")+
+  geom_sf(data=input_sf, fill=NA)
+
+
+
+
+
 
