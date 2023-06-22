@@ -157,12 +157,26 @@ bc_buff <- st_buffer(bc_sf, dist=12000)
 bc_sf$BC <- "BC" 
 
 ### Fisher habitat boundaries
-FHZ <- st_read(dsn="./data", layer="FHE_zones")
-FHZ <- st_simplify(FHZ)
+# FHZ <- st_read(dsn="./data", layer="FHE_zones")
+# FHZ <- st_simplify(FHZ)
+
+
+#################################################################################
+### Natural Resource Districts
+# 10: Natural Resource (NR) Districts (multiple, wms, oracle_sde)
+# ID: 0bc73892-e41f-41d0-8d8e-828c16139337
+# Name: natural-resource-nr-district
+NRD <- bcdc_get_data(record="0bc73892-e41f-41d0-8d8e-828c16139337")
+
+NRD
+ggplot()+
+  geom_sf(data=NRD)
+
+###--- for the NR of choice
+aoi <- NRD %>% filter(ORG_UNIT=="DCC") %>% st_transform(3005)
 
 #################################################################################
 
-#################################################################################
 # for each Study Area
 dsn="data/Esketemc"
 layer="SOI_Esket2020"
