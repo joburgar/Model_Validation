@@ -167,13 +167,14 @@ bc_sf$BC <- "BC"
 # ID: 0bc73892-e41f-41d0-8d8e-828c16139337
 # Name: natural-resource-nr-district
 NRD <- bcdc_get_data(record="0bc73892-e41f-41d0-8d8e-828c16139337")
-
 NRD
-ggplot()+
-  geom_sf(data=NRD)
 
 ###--- for the NR of choice
-aoi <- NRD %>% filter(ORG_UNIT=="DCC") %>% st_transform(3005)
+aoi <- NRD %>% filter(REGION_ORG_UNIT=="RCB") %>% st_transform(3005)
+
+ggplot()+
+  geom_sf(data=NRD)+
+  geom_sf(data=aoi, col="red")
 
 #################################################################################
 
